@@ -7,11 +7,11 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Request
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
-from qdrant_client import QdrantClient
 
 from app.chain import ChainResult, build_chain
 from app.config import get_settings
 from app.logging_setup import setup_logging
+from app.store import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +47,6 @@ class AskResponse(BaseModel):
     model: str
 
 
-def get_qdrant_client() -> QdrantClient:
-    return QdrantClient(url=get_settings().qdrant_url, timeout=5)
-
-
 def get_chain(request: Request) -> Runnable[dict[str, Any], ChainResult]:
     return request.app.state.chain
 
@@ -58,7 +54,7 @@ def get_chain(request: Request) -> Runnable[dict[str, Any], ChainResult]:
 @app.get("/health")
 def health() -> dict[str, str]:
     try:
-        get_qdrant_client().get_collections()
+        get_qdrant_client(get_settings()).get_collections()
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Qdrant unreachable") from exc
     return {"status": "ok"}

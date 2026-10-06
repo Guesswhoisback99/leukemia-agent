@@ -3,8 +3,7 @@
 import logging
 from typing import Any, TypedDict
 
-from botocore.config import Config
-from langchain_aws import BedrockRerank, ChatBedrockConverse
+from langchain_aws import ChatBedrockConverse
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
@@ -50,38 +49,6 @@ class ChainResult(TypedDict):
     usage: dict[str, Any] | None
 
 
-def retrieve(
-    store: QdrantVectorStore,
-    question: str,
-    top_k: int,
-    *,
-    reranker: BedrockRerank | None = None,
-    fetch_k: int = 20,
-) -> list[tuple[Document, float]]:
-    """Top-k chunks with scores. With a reranker, rerank `fetch_k` candidates and keep `top_k`;
-    the score is then the rerank relevance score."""
-    if reranker is None:
-        return store.similarity_search_with_score(question, k=top_k)
-    candidates = store.similarity_search_with_score(question, k=max(fetch_k, top_k))
-    if not candidates:
-        return []
-    ranked = reranker.rerank([doc.page_content for doc, _ in candidates], question, top_n=top_k)
-    return [(candidates[r["index"]][0], r["relevance_score"]) for r in ranked]
-
-
-def get_reranker(settings: Settings) -> BedrockRerank | None:
-    if not settings.rerank_enabled:
-        return None
-    return BedrockRerank(
-        model_arn=(
-            f"arn:aws:bedrock:{settings.aws_region}::foundation-model/{settings.rerank_model_id}"
-        ),
-        region_name=settings.aws_region,
-        # Cohere Rerank 3.5 on-demand quota is 3 requests/minute by default: back off, don't fail.
-        config=Config(retries={"max_attempts": 10, "mode": "adaptive"}),
-    )
-
-
 def format_context(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(
         f"[s. {doc.metadata['page']}, {doc.metadata['section']}]\n{doc.page_content}"
@@ -114,12 +81,10 @@ def build_chain(
     *,
     store: QdrantVectorStore | None = None,
     llm: BaseChatModel | None = None,
-    reranker: BedrockRerank | None = None,
 ) -> Runnable[dict[str, Any], ChainResult]:
     """Chain over `{"question": str, "top_k": int}`. Clients are built once, here."""
-    store = store if store is not None else get_vector_store(settings, settings.retrieval_mode)
+    store = store if store is not None else get_vector_store(settings)
     llm = llm if llm is not None else get_llm(settings)
-    reranker = (reranker or get_reranker(settings)) if settings.rerank_enabled else None
 
     generate = (
         RunnablePassthrough.assign(context=lambda x: format_context([d for d, _ in x["retrieved"]]))
@@ -133,13 +98,8 @@ def build_chain(
     )
     return (
         RunnablePassthrough.assign(
-            retrieved=lambda x: retrieve(
-                store,
-                x["question"],
-                x["top_k"],
-                reranker=reranker,
-                fetch_k=settings.rerank_fetch_k,
-            )
+            # Scores are RRF fusion scores (hybrid retrieval), not cosine similarities.
+            retrieved=lambda x: store.similarity_search_with_score(x["question"], k=x["top_k"])
         )
         | RunnablePassthrough.assign(message=answer)
         | RunnableLambda(_to_result)

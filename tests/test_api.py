@@ -26,7 +26,7 @@ def override_chain(fn):
 
 
 def test_health_ok(client, monkeypatch):
-    monkeypatch.setattr(api, "get_qdrant_client", lambda: MagicMock())
+    monkeypatch.setattr(api, "get_qdrant_client", lambda _: MagicMock())
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
@@ -35,7 +35,7 @@ def test_health_ok(client, monkeypatch):
 def test_health_qdrant_down(client, monkeypatch):
     qdrant = MagicMock()
     qdrant.get_collections.side_effect = ConnectionError("down")
-    monkeypatch.setattr(api, "get_qdrant_client", lambda: qdrant)
+    monkeypatch.setattr(api, "get_qdrant_client", lambda _: qdrant)
     response = client.get("/health")
     assert response.status_code == 503
 

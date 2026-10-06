@@ -1,24 +1,13 @@
 # 01 – RAG MVP
 
-RAG layer of the agent for the PALG ALL7 protocol (Polish PDF, 68 pages).
+RAG layer of the agent for the PALG ALL7 protocol (Polish PDF, 68 pages). Status: done.
 
-The user asks a question in Polish through a FastAPI endpoint. The system finds relevant
-fragments of the protocol in Qdrant and generates a grounded answer with an AWS Bedrock model.
-Every answer cites its sources (page + section).
-
-Implementation plans: [`docs/plans/01-rag-mvp/`](../plans/01-rag-mvp/)
-
-## Milestones
-
-- [x] 01 – Skeleton ([plan](../plans/01-rag-mvp/01-skeleton.md))
-- [x] 02 – Ingest ([plan](../plans/01-rag-mvp/02-ingest.md))
-- [x] 03 – Chain + API ([plan](../plans/01-rag-mvp/03-chain-api.md))
-- [x] 04 – Eval: golden set + baseline ([plan](../plans/01-rag-mvp/04-eval.md))
-- [x] 05 – Retrieval experiments ([plan](../plans/01-rag-mvp/05-experiments.md))
+The user asks a question in Polish through `POST /ask`. The system retrieves fragments of the protocol from Qdrant
+and generates a grounded answer with an AWS Bedrock model. Every answer cites its sources (page + section).
 
 ## Source document
 
-- File: `protokol_palg_all7` – PDF 1.7, 68 pages, Polish, tagged (has a structure tree).
+- `data/protokol_palg_all7.pdf` – PDF 1.7, 68 pages, Polish, tagged. Copyrighted: `data/` is gitignored and the repo is public.
 - About 122k characters of text. Clear hierarchy (I/II/III → A/B/C → 1/2/3).
 - Most important content is in **dose tables** (drug / dose / days). Naive text extraction flattens them.
 - Pages 1–4: title page and table of contents.
@@ -26,102 +15,60 @@ Implementation plans: [`docs/plans/01-rag-mvp/`](../plans/01-rag-mvp/)
 
 ## Decisions
 
-Each decision: what we chose, why, and what we rejected.
-Later changes to these architecture decisions are ADRs in [`docs/adr/`](../adr/).
-
 ### Orchestration
-- **Chose:** LangChain, plain LCEL chain (`retriever | format | prompt | llm`).
-- **Why:** widely used library, a single-turn RAG has no branching.
-- **Rejected:** hand-rolled boto3 code, LlamaIndex, LangGraph (no loops or decisions yet).
+- LangChain LCEL chain: retrieve → format → prompt → LLM, with one branch: empty retrieval returns the refusal
+  without calling the LLM. Not LangGraph (no loops or decisions yet), not hand-rolled boto3.
 
-### Embeddings
-- **Chose:** `amazon.titan-embed-text-v2:0`, 1024 dims, normalized, cosine distance.
-- **Why:** cheapest of the multilingual options, handles Polish.
-- **Rejected:** `cohere.embed-v4:0` (about 6× the price), `cohere.embed-multilingual-v3` (512-token input limit).
-- Model ID and dimension live in config. Changing either requires re-creating the collection.
+### Models
+- **Embeddings:** `amazon.titan-embed-text-v2:0`, 1024 dims, normalized, cosine. Cheapest multilingual option that
+  handles Polish (`cohere.embed-v4:0` costs about 6× more; `cohere.embed-multilingual-v3` has a 512-token input limit).
+  Changing the model or dimension means re-creating the collection.
+- **Generation:** `eu.amazon.nova-2-lite-v1:0` through `ChatBedrockConverse`, temperature 0. Cheap, multilingual,
+  EU-only routing. Converse makes swapping models a config change.
 
-### Generation model
-- **Chose:** `eu.amazon.nova-2-lite-v1:0` through `ChatBedrockConverse`, temperature 0.
-- **Why:** cheap, multilingual, EU-only routing. The Converse API makes swapping models a config change.
-- **Rejected:** Anthropic models (excluded by choice), `global.*` profiles (may route outside the EU).
-- Comparison candidate in experiments: `openai.gpt-oss-120b-1:0`.
-
-### Region and routing
-- **Chose:** `eu-central-1`, only `eu.*` inference profiles or regional on-demand models.
-
-### PDF parsing
-- **Chose:** Docling via `langchain-docling`, `ExportType.DOC_CHUNKS` with `HybridChunker` (~500 tokens).
-- **Why:** keeps table structure, the heading hierarchy, and **page numbers** in metadata.
-- **Rejected:** `PyPDFLoader` (tables become noise; kept only as an experiment baseline),
-  PyMuPDF4LLM (AGPL), Docling Markdown export (loses page numbers, which citations need).
-
-### Chunk content
-- The section heading path is prepended to each chunk's text before embedding
-  (a dose table means little without its heading).
-- Pages 1–4 (title + TOC) are excluded. The TOC matches almost every query and pushes out real content.
-  The list of excluded pages is configurable.
-- Diagram pages (5, 22, 68) are a known gap in v1.
-
-### Vector database
-- **Chose:** Qdrant in Docker Compose, port bound to `127.0.0.1`, data in a named volume, no API key.
-- Collection has a named dense vector (`dense`) and a named sparse BM25 vector (`sparse`), both filled at ingest.
-  The baseline queries dense only. The hybrid experiment just switches the retrieval mode, without re-ingesting.
-- **Rejected:** embedded Qdrant (no server), Qdrant Cloud (extra secret).
+### PDF parsing and chunks
+- Docling via `langchain-docling`, `ExportType.DOC_CHUNKS` with `HybridChunker` (~500 tokens). It keeps table
+  structure, the heading hierarchy and **page numbers**, which citations need. Not Docling Markdown export (loses
+  page numbers), not PyMuPDF4LLM (AGPL).
+- Each chunk's text starts with its section heading path (a dose table means little without its heading).
+- Pages 1–4 (title + TOC) are excluded.
+- Diagram pages (5, 22, 68) are a known gap.
 
 ### Retrieval
-- **Baseline:** dense search, top-k = 5.
-- Hybrid (dense + BM25) and reranking (`cohere.rerank-v3-5:0`) are measured experiments, not defaults.
+- **Hybrid:** dense Titan + sparse BM25 (FastEmbed `Qdrant/bm25`) fused with RRF, top-k 5. Chosen from the
+  experiments below. `score` in sources is an RRF fusion score, not cosine similarity.
+- Qdrant in Docker Compose: port bound to `127.0.0.1`, named volume, no API key. Collection with named vectors
+  `dense` and `sparse`. Not embedded Qdrant (no server), not Qdrant Cloud (extra secret).
 
 ### Prompt and answers
-- System prompt in Polish. Answer **only** from the provided context.
-- Cite after each claim, e.g. `[s. 16, II.C.10]`.
-- If the context lacks the answer, reply exactly: `Protokół nie zawiera informacji na ten temat.`
-- Never invent doses or extrapolate between patient groups.
-- `sources` in the response are built from retrieved chunks, not from what the LLM claims.
+- Polish system prompt. Answer **only** from the provided context; cite after each claim, e.g.
+  `[s. 16, 10. KONSOLIDACJA III]`; never invent doses or extrapolate between patient groups.
+- If the context lacks the answer, reply exactly `Protokół nie zawiera informacji na ten temat.`
 
 ### API
-- `POST /ask`: request `{ "question": str, "top_k"?: int }` →
-  response `{ "answer": str, "sources": [{ "section", "page", "snippet", "score" }], "model": str }`.
-- `GET /health`: returns 200 when Qdrant is reachable.
+- `POST /ask`: `{ "question": str, "top_k"?: int }` →
+  `{ "answer": str, "sources": [{ "section", "page", "snippet", "score" }], "model": str }`.
+- `GET /health`: 200 when Qdrant is reachable.
 - Single-turn, no streaming, no chat history.
 
-### Runtime
-- **Chose:** FastAPI runs as a Docker Compose service next to Qdrant. Ingest and eval run on the host with `uv run`.
-- Slim API image: Docling (PyTorch, models) is only in the `ingest` dependency group, which is not installed in the image.
-- Inside Compose the API reaches Qdrant at `http://qdrant:6333`. From the host it is `http://localhost:6333`.
+### Runtime and secrets
+- The API runs in Docker Compose next to Qdrant; ingest and eval run on the host with `uv run`. Docling (PyTorch,
+  models) is only in the `ingest` dependency group, so the API image stays slim.
+- AWS keys never enter the project: boto3 uses its default chain, `~/.aws` is mounted read-only. Keys in `.env`
+  were rejected because one bad ignore rule would commit them. Safety net: `.gitignore` + GitHub secret-scanning
+  push protection; no pre-commit hooks.
 
-### Secrets and config
-- `pydantic-settings` loads `.env` (gitignored). `.env.example` is committed.
-- `.env` holds only non-secret settings: region, model IDs, Qdrant URL, collection name, PDF path,
-  excluded pages, `AWS_PROFILE`, `LOG_LEVEL`.
-- AWS keys never enter the project. boto3 uses its default credential chain.
-  `~/.aws` is mounted **read-only** into the API container.
-- **Rejected:** passing access keys as env vars through `.env`, since one bad ignore rule would commit them.
-- Safety net: `.gitignore` + GitHub secret-scanning push protection (verified enabled).
-- **Rejected:** pre-commit hooks / gitleaks.
-- Optional: a dedicated IAM user limited to `bedrock:InvokeModel*` and `bedrock:Rerank`.
-
-### Source PDF
-- Lives in `data/protokol_palg_all7.pdf`. `data/` is gitignored, because the document is copyrighted and the repo is public.
-
-### Observability
-- **Chose:** stdout logging only. Per request: question, retrieved pages + scores, model ID, token usage, latency.
-  The full prompt is logged only at `LOG_LEVEL=DEBUG`.
-- **Rejected for now:** Langfuse (6-container stack), CloudWatch GenAI observability with ADOT.
-
-### Quality
-- `ruff` (run by hand) and `pytest`. Tests never call AWS (chain and clients are mocked).
-- **Rejected:** CI (GitHub Actions), pre-commit.
+### Observability and quality
+- stdout logging only. Per request: question, retrieved pages + scores, model ID, token usage, latency.
+  The full prompt only at `LOG_LEVEL=DEBUG`. Langfuse and CloudWatch GenAI observability are backlog.
+- `ruff` (by hand) and `pytest`. No CI.
 
 ### Evaluation
-- About 30 Polish golden questions. An LLM drafts them from chunks, then a human reviews them.
-- Mix: answers in tables, answers in prose, answers in diagram pages (known gap), questions the protocol cannot answer.
-- `eval/golden.jsonl` is committed, with short expected answers (a dose, a day), not long quotes.
-- Metrics: hit@k and MRR (by expected page), refusal correctness.
-- Results go to `eval/results/` (gitignored).
-
-### Tooling
-- Python 3.12 (pinned in `.python-version`), `uv` with dependency groups `api`, `ingest`, `dev`.
+- About 30 Polish golden questions in `eval/golden.jsonl` (committed): an LLM drafts them from chunks
+  (`eval/generate_golden.py`), a human reviews them. Short expected answers (a dose, a day), not long quotes.
+- Mix: answers in tables, in prose, in diagram pages (known gap), and questions the protocol cannot answer.
+- Metrics: hit@k and MRR (by expected page), refusal correctness, `contains expected`.
+  Results go to `eval/results/` (gitignored).
 
 ## Results
 
@@ -134,6 +81,9 @@ Run with `uv run python -m eval.run --label <label>`, k = 5. hit@5 and MRR cover
 so one question moves them by about 0.04. `contains expected` ignores whitespace, case and dash variants
 (all rows re-scored with the same metric from saved answers).
 
+The experiment switches in the notes (`RETRIEVAL_MODE`, `RERANK_ENABLED`, `PARSER`, `EXCLUDED_PAGES`) were removed
+once the experiments were settled. To reproduce a row, check out commit `bad7c2b`.
+
 | label | hit@5 | MRR | refusal correct | contains expected | notes |
 |---|---|---|---|---|---|
 | baseline | 0.783 | 0.659 | 0.786 | 0.609 | Dense, top-5, Docling chunks, Nova 2 Lite. hit@5: table 0.90, prose 0.90, diagram 0/3 (known gap). Unanswerable 5/5 refused. Misses: q06 (p.17 not retrieved), q15 (p.46). q09 retrieved at rank 3 but the model refused. A re-run on the final code reproduces retrieval and refusals exactly. |
@@ -144,26 +94,23 @@ so one question moves them by about 0.04. `contains expected` ignores whitespace
 | pypdf | 0.783 | 0.598 | 0.786 | 0.652 | `PARSER=pypdf`, collection `palg_all7_pypdf` (85 chunks, ~2000 chars, no headings). Same hit@5, lower MRR (q07, q10, q12, q14, q18 drop to rank 2). q09 answered, q17 now refused. Tables come out as readable rows on this PDF, so the gap to Docling is smaller than expected. |
 | gpt-oss | 0.783 | 0.659 | 0.821 | 0.478 | `LLM_MODEL_ID=openai.gpt-oss-120b-1:0`, same retrieval as baseline. Reasoning blocks are dropped from `answer`. Answers q09, but with the <55 dose (40 mg/m2, p.8) for the >55 group: an extrapolation the prompt forbids. Lower `contains expected` (answers paraphrase, e.g. q17, q19). |
 
-### Summary and proposed default
+### Conclusions
 
-- **Retrieval:** rerank gives the best ranking (MRR 0.659 → 0.750) and the most correct answers
-  (refusal correct 0.857). Hybrid gives the best recall (hit@5 0.870) at no extra cost, and is the only
-  setting that reaches a diagram page. Combining them did not add up.
+- **Retrieval: hybrid is the default.** Best recall (hit@5 0.870) at no extra cost, and the only setting that
+  reaches a diagram page. Rerank ranks best (MRR 0.750) but the Cohere Rerank on-demand quota is 3 requests/minute,
+  too low for the API, so its code was removed (see backlog). Combining them did not add up.
 - **Parsing:** Docling stays. pypdf matches hit@5 but ranks worse, and has no section headings for citations.
 - **TOC:** keep pages 1–4 excluded (no gain from including them).
 - **Model:** keep Nova 2 Lite. gpt-oss-120b extrapolated a dose between age groups (q09), which is the
   failure the prompt rules exist to prevent.
-- **Proposed new default** ([ADR 0002](../adr/0002-retrieval-default.md), not applied; needs approval): `RERANK_ENABLED=true` with dense retrieval,
-  after raising the Cohere Rerank on-demand quota above 3 requests/minute. Until then, `RETRIEVAL_MODE=hybrid`
-  is the safe improvement. With n = 23 answerable questions both gains are 2–4 questions, so grow the golden
-  set before relying on the difference between them.
+- With n = 23 answerable questions each gain is 2–4 questions. Grow the golden set before relying on small differences.
 
-## Backlog (future steps)
+## Backlog
 
-- The agent itself, built on this retrieval layer (scope defined in a later requirements file).
-
+- The agent itself, built on this retrieval layer (scope in a later requirements file).
+- Rerank (`cohere.rerank-v3-5:0` via `BedrockRerank`) once the quota is raised; the code is in `bad7c2b`.
 - Multimodal descriptions of diagram pages (5, 22, 68) at ingest.
-- LLM-as-judge for answer quality.
+- Grow the golden set; LLM-as-judge for answer quality.
 - Tracing: CloudWatch GenAI observability (ADOT + OpenInference) or Langfuse.
 - LangGraph: query rewriting, retry when retrieval is weak.
 - Streaming responses, chat history.

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.chain import get_llm
 from app.config import get_settings
+from app.ingest import CHUNKS_PATH
 
 DRAFT_PATH = Path("eval/golden.draft.jsonl")
 SEED = 7
@@ -42,7 +43,7 @@ def spread_sample(items: list[Any], n: int, rng: random.Random) -> list[Any]:
     return [rng.choice(items[bounds[i] : bounds[i + 1]]) for i in range(n)]
 
 
-def load_chunks(path: str) -> list[dict[str, Any]]:
+def load_chunks(path: Path) -> list[dict[str, Any]]:
     with open(path, encoding="utf-8") as f:
         rows = [json.loads(line) for line in f]
     return sorted(rows, key=lambda r: r["metadata"]["chunk_index"])
@@ -50,7 +51,7 @@ def load_chunks(path: str) -> list[dict[str, Any]]:
 
 def main() -> None:
     settings = get_settings()
-    chunks = load_chunks(settings.chunks_path)
+    chunks = load_chunks(CHUNKS_PATH)
     rng = random.Random(SEED)
     tables = spread_sample([c for c in chunks if c["metadata"]["has_table"]], N_TABLE, rng)
     prose = spread_sample([c for c in chunks if not c["metadata"]["has_table"]], N_PROSE, rng)

@@ -15,8 +15,9 @@ paths:
   no Anthropic models.
 
 ## Configuration
-- Every setting lives in `app/config.py` **and** `.env.example`, with a safe default.
-- Model IDs, dimensions, collection name, and retrieval options come from settings, never hard-coded.
+- `Settings` in `app/config.py` holds only what changes per environment or experiment: model IDs, region,
+  Qdrant URL, collection, top-k, log level. Fixed values are module constants with a comment saying why.
+- `.env.example` lists only what a user must set, plus commented-out common overrides.
 
 ## Dependencies
 - Dependency groups: `api` (goes into the Docker image), `ingest` (Docling, host only), `dev`.

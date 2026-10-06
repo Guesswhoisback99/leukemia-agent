@@ -10,7 +10,6 @@ from app.ingest import (
     chunk_section,
     is_excluded,
     normalize_chunk,
-    normalize_pypdf_chunk,
     point_id,
     select_chunks,
     with_heading_prefix,
@@ -100,17 +99,3 @@ def test_titan_request_body_has_dimensions_and_normalize():
     embeddings.embed_query("dawka")
     body = json.loads(client.invoke_model.call_args.kwargs["body"])
     assert body == {"inputText": "dawka", "dimensions": 1024, "normalize": True}
-
-
-def test_pypdf_page_is_one_based():
-    doc = Document(page_content="METOTREKSAT", metadata={"page": 15, "source": "x"})
-    out = normalize_pypdf_chunk(doc, 3)
-    assert out.metadata == {
-        "pages": [16],
-        "page": 16,
-        "section": "",
-        "has_table": False,
-        "chunk_index": 3,
-        "source": "protokol_palg_all7.pdf",
-    }
-    assert out.page_content == "METOTREKSAT"

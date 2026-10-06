@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from app.chain import build_chain, get_reranker, retrieve
+from app.chain import build_chain
 from app.config import get_settings
 from app.store import get_vector_store
 from eval.metrics import contains_expected, first_hit_rank, hit_at_k, mrr, refusal_correct
@@ -66,16 +66,13 @@ def main() -> None:
 
     settings = get_settings()
     k = args.k or settings.top_k
-    store = get_vector_store(settings, settings.retrieval_mode)
-    reranker = get_reranker(settings)
-    chain = None if args.retrieval_only else build_chain(settings, store=store, reranker=reranker)
+    store = get_vector_store(settings)
+    chain = None if args.retrieval_only else build_chain(settings, store=store)
 
     rows = []
     for record in load_golden(args.golden):
         if chain is None:
-            retrieved = retrieve(
-                store, record["question"], k, reranker=reranker, fetch_k=settings.rerank_fetch_k
-            )
+            retrieved = store.similarity_search_with_score(record["question"], k=k)
             result = None
         else:
             result = chain.invoke({"question": record["question"], "top_k": k})

@@ -2,7 +2,8 @@
 
 Agent for the PALG ALL7 treatment protocol. Ask questions in Polish, get answers with page and section citations.
 
-Built with LangChain, AWS Bedrock (Titan v2 embeddings, Amazon Nova 2 Lite), Qdrant and FastAPI.
+Built with LangChain, AWS Bedrock (Titan v2 embeddings, Amazon Nova 2 Lite), Qdrant (hybrid dense + BM25
+search) and FastAPI.
 
 ## You need
 
@@ -26,14 +27,8 @@ curl -s localhost:8000/ask -H 'content-type: application/json' \
 - **Intel Mac host:** PyTorch stops at 2.2.2 on macOS x86_64, so `pyproject.toml` pins `numpy<2` and
   `transformers<5` there only (`constraint-dependencies`). `docling-parse` has no wheel and builds from
   source on the first `uv sync` (about 15 minutes). The Linux image is not affected.
-- **Docling device:** `DOCLING_DEVICE` defaults to `cpu`. With `auto`, Docling picked MPS on an Intel Mac and
-  silently produced chunks without headings or tables. If you change it, check the "with tables" count in the
-  ingest log (on CPU: 134 chunks parsed, 49 with tables).
-- **Rerank quota:** the default on-demand quota for `cohere.rerank-v3-5:0` is 3 requests/minute. The client
-  retries with backoff, so `RERANK_ENABLED=true` works but is slow until the quota is raised.
+- **Docling device:** `DOCLING_DEVICE` in `app/ingest.py` is `cpu`. With `auto`, Docling picked MPS on an Intel
+  Mac and silently produced chunks without headings or tables. If you change it, check the "with tables" count in
+  the ingest log (on CPU: 134 chunks parsed, 49 with tables).
 
-## Docs
-
-- [Requirements and decisions](docs/requirements/)
-- [Implementation plans](docs/plans/)
-- [Architecture decision records](docs/adr/)
+Scope, decisions and eval results: [docs/requirements/](docs/requirements/).

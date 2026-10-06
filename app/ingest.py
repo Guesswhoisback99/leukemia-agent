@@ -12,15 +12,24 @@ from uuid import NAMESPACE_URL, uuid5
 
 from langchain_core.documents import Document
 
-from app.config import Settings, get_settings
+from app.config import get_settings
+from app.logging_setup import setup_logging
 from app.store import get_qdrant_client, get_vector_store, recreate_collection
 
 logger = logging.getLogger(__name__)
 
 SOURCE = "protokol_palg_all7.pdf"
+PDF_PATH = Path("data") / SOURCE
+CHUNKS_PATH = Path("data/chunks.jsonl")
+# Title page + table of contents: the TOC matches almost every query and pushes out real content.
+EXCLUDED_PAGES = [1, 2, 3, 4]
+# Tokenizer used only to size chunks (Titan's tokenizer is not public); multilingual for Polish.
+CHUNK_TOKENIZER = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+CHUNK_MAX_TOKENS = 500
+# "auto" picks MPS on Macs, which breaks layout detection on Intel Macs with torch 2.2
+# (no headings, no tables), so stay on CPU.
+DOCLING_DEVICE = "cpu"
 BATCH_SIZE = 32
-PYPDF_CHUNK_SIZE = 2000
-PYPDF_CHUNK_OVERLAP = 200
 
 
 def chunk_pages(dl_meta: dict[str, Any]) -> list[int]:
@@ -76,27 +85,11 @@ def normalize_chunk(doc: Document, chunk_index: int) -> Document:
     )
 
 
-def normalize_pypdf_chunk(doc: Document, chunk_index: int) -> Document:
-    """Flatten a PyPDFLoader chunk; pypdf pages are 0-based."""
-    page = doc.metadata["page"] + 1
-    return Document(
-        page_content=doc.page_content,
-        metadata={
-            "pages": [page],
-            "page": page,
-            "section": "",
-            "has_table": False,
-            "chunk_index": chunk_index,
-            "source": SOURCE,
-        },
-    )
-
-
 def select_chunks(docs: list[Document], excluded_pages: list[int]) -> list[Document]:
     return [d for d in docs if not is_excluded(d.metadata["pages"], excluded_pages)]
 
 
-def load_docling_chunks(settings: Settings) -> list[Document]:
+def load_chunks() -> list[Document]:
     from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -107,32 +100,21 @@ def load_docling_chunks(settings: Settings) -> list[Document]:
     from langchain_docling.loader import ExportType
 
     pipeline_options = PdfPipelineOptions(
-        accelerator_options=AcceleratorOptions(device=AcceleratorDevice(settings.docling_device))
+        accelerator_options=AcceleratorOptions(device=AcceleratorDevice(DOCLING_DEVICE))
     )
     converter = DocumentConverter(
         format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
     )
     tokenizer = HuggingFaceTokenizer.from_pretrained(
-        model_name=settings.chunk_tokenizer, max_tokens=settings.chunk_max_tokens
+        model_name=CHUNK_TOKENIZER, max_tokens=CHUNK_MAX_TOKENS
     )
     loader = DoclingLoader(
-        file_path=settings.pdf_path,
+        file_path=PDF_PATH,
         converter=converter,
         export_type=ExportType.DOC_CHUNKS,
         chunker=HybridChunker(tokenizer=tokenizer),
     )
     return [normalize_chunk(doc, i) for i, doc in enumerate(loader.lazy_load())]
-
-
-def load_pypdf_chunks(settings: Settings) -> list[Document]:
-    from langchain_community.document_loaders import PyPDFLoader
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=PYPDF_CHUNK_SIZE, chunk_overlap=PYPDF_CHUNK_OVERLAP
-    )
-    chunks = splitter.split_documents(PyPDFLoader(settings.pdf_path).load())
-    return [normalize_pypdf_chunk(doc, i) for i, doc in enumerate(chunks)]
 
 
 def write_jsonl(docs: list[Document], path: Path) -> None:
@@ -144,27 +126,24 @@ def write_jsonl(docs: list[Document], path: Path) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s", force=True
-    )
     settings = get_settings()
+    setup_logging(settings.log_level)
     started = time.perf_counter()
 
-    loaders = {"docling": load_docling_chunks, "pypdf": load_pypdf_chunks}
-    parsed = loaders[settings.parser](settings)
-    docs = select_chunks(parsed, settings.excluded_pages)
+    parsed = load_chunks()
+    docs = select_chunks(parsed, EXCLUDED_PAGES)
     logger.info(
         "Parsed %d chunks (%d with tables), excluded %d (pages %s)",
         len(parsed),
         sum(d.metadata["has_table"] for d in parsed),
         len(parsed) - len(docs),
-        settings.excluded_pages,
+        EXCLUDED_PAGES,
     )
-    write_jsonl(docs, Path(settings.chunks_path))
+    write_jsonl(docs, CHUNKS_PATH)
 
     client = get_qdrant_client(settings)
     recreate_collection(client, settings)
-    store = get_vector_store(settings, mode="hybrid", client=client)
+    store = get_vector_store(settings, client=client)
     for start in range(0, len(docs), BATCH_SIZE):
         batch = docs[start : start + BATCH_SIZE]
         ids = [point_id(d.metadata["source"], d.metadata["chunk_index"]) for d in batch]

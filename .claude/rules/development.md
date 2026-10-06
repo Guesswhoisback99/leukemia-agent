@@ -3,7 +3,7 @@ paths:
   - "app/**"
   - "eval/**"
   - "tests/**"
-  - "docs/plans/**"
+  - "docs/**"
   - "pyproject.toml"
   - "uv.lock"
   - "Dockerfile"
@@ -14,18 +14,12 @@ paths:
 
 # Development rules
 
-## How work is organized
-- `docs/requirements/NN-<step>.md`: what a step is, decisions (and why), milestone checklist.
-- `docs/plans/NN-<step>/MM-<milestone>.md`: exact steps for one milestone.
-- Work on **one plan file at a time**. Follow its steps, meet its acceptance criteria, respect its "Out of scope".
-- When a milestone is done, tick it in the matching requirements file.
-- If a plan conflicts with the requirements or with reality (an API changed, a model is unavailable), stop and ask.
-  Don't silently pick something else.
-- Record architecturally significant decisions (components, technologies, interfaces, data model, deployment,
-  anything expensive to reverse) as an ADR in `docs/adr/NNNN-<slug>.md`, indexed in `docs/adr/README.md`.
-  Commit it with the change it explains. Never rewrite an accepted ADR; supersede it.
-- Other decisions are not ADRs: workarounds and config defaults get a comment where they are defined
-  (and a README "Development notes" entry if people need to know); eval findings go in the requirements "Results".
+## Docs
+- `docs/requirements/NN-<step>.md`: what a step is, its decisions (and why), eval results. Update it in the
+  same change as the code it describes.
+- If the requirements conflict with reality (an API changed, a model is unavailable), stop and ask.
+- Workarounds get a comment where they are defined, plus a README "Development notes" entry if people need to know.
+- When an experiment is settled, delete the losing code path. Git history keeps it.
 
 ## Tooling
 - Python 3.12, `uv` only (`uv add`, `uv sync`, `uv run`). Never use pip directly.
