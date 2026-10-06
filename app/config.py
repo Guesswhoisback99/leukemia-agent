@@ -23,7 +23,14 @@ class Settings(BaseSettings):
     collection_name: str = "palg_all7"
 
     pdf_path: str = "data/protokol_palg_all7.pdf"
+    chunks_path: str = "data/chunks.jsonl"
     excluded_pages: list[int] = [1, 2, 3, 4]
+    # Tokenizer used only to size chunks (Titan's tokenizer is not public); multilingual for Polish.
+    chunk_tokenizer: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    chunk_max_tokens: int = 500
+    # Docling inference device. "auto" picks MPS on Macs, which breaks layout detection on
+    # Intel Macs with torch 2.2 (no headings, no tables), so the default is CPU.
+    docling_device: Literal["auto", "cpu", "mps", "cuda"] = "cpu"
 
     top_k: int = 5
     retrieval_mode: Literal["dense", "hybrid"] = "dense"

@@ -11,7 +11,7 @@ Implementation plans: [`docs/plans/01-rag-mvp/`](../plans/01-rag-mvp/)
 ## Milestones
 
 - [x] 01 – Skeleton ([plan](../plans/01-rag-mvp/01-skeleton.md))
-- [ ] 02 – Ingest ([plan](../plans/01-rag-mvp/02-ingest.md))
+- [x] 02 – Ingest ([plan](../plans/01-rag-mvp/02-ingest.md))
 - [ ] 03 – Chain + API ([plan](../plans/01-rag-mvp/03-chain-api.md))
 - [ ] 04 – Eval: golden set + baseline ([plan](../plans/01-rag-mvp/04-eval.md))
 - [ ] 05 – Retrieval experiments ([plan](../plans/01-rag-mvp/05-experiments.md))
