@@ -21,7 +21,10 @@ api = [
 ]
 ingest = [
     "docling>=2.134.0",
+    "langchain-community>=0.4.2",
     "langchain-docling>=3.0.0",
+    "langchain-text-splitters>=1.1.3",
+    "pypdf>=6.19.0",
 ]
 dev = [
     "httpx>=0.28.1",

@@ -21,7 +21,19 @@ curl -s localhost:8000/ask -H 'content-type: application/json' \
   -d '{"question": "Jaka jest dawka metotreksatu w konsolidacji III?"}'
 ```
 
+## Development notes
+
+- **Intel Mac host:** PyTorch stops at 2.2.2 on macOS x86_64, so `pyproject.toml` pins `numpy<2` and
+  `transformers<5` there only (`constraint-dependencies`). `docling-parse` has no wheel and builds from
+  source on the first `uv sync` (about 15 minutes). The Linux image is not affected.
+- **Docling device:** `DOCLING_DEVICE` defaults to `cpu`. With `auto`, Docling picked MPS on an Intel Mac and
+  silently produced chunks without headings or tables. If you change it, check the "with tables" count in the
+  ingest log (on CPU: 134 chunks parsed, 49 with tables).
+- **Rerank quota:** the default on-demand quota for `cohere.rerank-v3-5:0` is 3 requests/minute. The client
+  retries with backoff, so `RERANK_ENABLED=true` works but is slow until the quota is raised.
+
 ## Docs
 
 - [Requirements and decisions](docs/requirements/)
 - [Implementation plans](docs/plans/)
+- [Architecture decision records](docs/adr/)

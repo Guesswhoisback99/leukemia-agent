@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 SOURCE = "protokol_palg_all7.pdf"
 BATCH_SIZE = 32
+PYPDF_CHUNK_SIZE = 2000
+PYPDF_CHUNK_OVERLAP = 200
 
 
 def chunk_pages(dl_meta: dict[str, Any]) -> list[int]:
@@ -74,6 +76,22 @@ def normalize_chunk(doc: Document, chunk_index: int) -> Document:
     )
 
 
+def normalize_pypdf_chunk(doc: Document, chunk_index: int) -> Document:
+    """Flatten a PyPDFLoader chunk; pypdf pages are 0-based."""
+    page = doc.metadata["page"] + 1
+    return Document(
+        page_content=doc.page_content,
+        metadata={
+            "pages": [page],
+            "page": page,
+            "section": "",
+            "has_table": False,
+            "chunk_index": chunk_index,
+            "source": SOURCE,
+        },
+    )
+
+
 def select_chunks(docs: list[Document], excluded_pages: list[int]) -> list[Document]:
     return [d for d in docs if not is_excluded(d.metadata["pages"], excluded_pages)]
 
@@ -106,6 +124,17 @@ def load_docling_chunks(settings: Settings) -> list[Document]:
     return [normalize_chunk(doc, i) for i, doc in enumerate(loader.lazy_load())]
 
 
+def load_pypdf_chunks(settings: Settings) -> list[Document]:
+    from langchain_community.document_loaders import PyPDFLoader
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=PYPDF_CHUNK_SIZE, chunk_overlap=PYPDF_CHUNK_OVERLAP
+    )
+    chunks = splitter.split_documents(PyPDFLoader(settings.pdf_path).load())
+    return [normalize_pypdf_chunk(doc, i) for i, doc in enumerate(chunks)]
+
+
 def write_jsonl(docs: list[Document], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -121,7 +150,8 @@ def main() -> None:
     settings = get_settings()
     started = time.perf_counter()
 
-    parsed = load_docling_chunks(settings)
+    loaders = {"docling": load_docling_chunks, "pypdf": load_pypdf_chunks}
+    parsed = loaders[settings.parser](settings)
     docs = select_chunks(parsed, settings.excluded_pages)
     logger.info(
         "Parsed %d chunks (%d with tables), excluded %d (pages %s)",

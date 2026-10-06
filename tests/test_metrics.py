@@ -51,6 +51,11 @@ def test_contains_expected():
     assert not contains_expected("3500 mg/m2", "1500 mg/m2")
 
 
+def test_contains_expected_dash_variants():
+    assert contains_expected("w dniach\u202f36\u201142", "36-42")
+    assert contains_expected("co 4\u20136 tygodni", "co 4-6 tygodni")
+
+
 def test_spread_sample_one_per_slice():
     import random
 

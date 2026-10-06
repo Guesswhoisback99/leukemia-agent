@@ -14,7 +14,7 @@ Implementation plans: [`docs/plans/01-rag-mvp/`](../plans/01-rag-mvp/)
 - [x] 02 – Ingest ([plan](../plans/01-rag-mvp/02-ingest.md))
 - [x] 03 – Chain + API ([plan](../plans/01-rag-mvp/03-chain-api.md))
 - [x] 04 – Eval: golden set + baseline ([plan](../plans/01-rag-mvp/04-eval.md))
-- [ ] 05 – Retrieval experiments ([plan](../plans/01-rag-mvp/05-experiments.md))
+- [x] 05 – Retrieval experiments ([plan](../plans/01-rag-mvp/05-experiments.md))
 
 ## Source document
 
@@ -27,6 +27,7 @@ Implementation plans: [`docs/plans/01-rag-mvp/`](../plans/01-rag-mvp/)
 ## Decisions
 
 Each decision: what we chose, why, and what we rejected.
+Later changes to these architecture decisions are ADRs in [`docs/adr/`](../adr/).
 
 ### Orchestration
 - **Chose:** LangChain, plain LCEL chain (`retriever | format | prompt | llm`).
@@ -125,12 +126,37 @@ Each decision: what we chose, why, and what we rejected.
 ## Results
 
 Golden set: `eval/golden.jsonl`, 28 questions (10 table, 10 prose, 3 diagram, 5 unanswerable).
-Page 68 renders blank apart from its heading, so both remaining diagram questions use the page-22 flowchart.
-Run with `uv run python -m eval.run --label <label>`, k = 5. hit@5 and MRR cover answerable questions only.
+The LLM drafted 22 questions from chunks; the agent checked them against the PDF, dropped 2 (q08: meta
+question; q20: the table lost the drug name in parsing), shortened expected answers, and added the diagram and
+unanswerable questions; the user approved the set. Page 68 renders blank apart from its heading
+("Załącznik nr 3"), so the diagram questions use page 5 (one) and page 22 (two).
+Run with `uv run python -m eval.run --label <label>`, k = 5. hit@5 and MRR cover the 23 answerable questions,
+so one question moves them by about 0.04. `contains expected` ignores whitespace, case and dash variants
+(all rows re-scored with the same metric from saved answers).
 
 | label | hit@5 | MRR | refusal correct | contains expected | notes |
 |---|---|---|---|---|---|
-| baseline | 0.783 | 0.659 | 0.786 | 0.609 | Dense, top-5, Docling chunks, Nova 2 Lite. table 0.90 / prose 0.90 hit@5; diagram 0/3 (known gap); unanswerable 5/5 refused. Misses: q06 (maintenance prednisone, p.17 not retrieved), q15 (p.46). q09 retrieved at rank 3 but the model refused. |
+| baseline | 0.783 | 0.659 | 0.786 | 0.609 | Dense, top-5, Docling chunks, Nova 2 Lite. hit@5: table 0.90, prose 0.90, diagram 0/3 (known gap). Unanswerable 5/5 refused. Misses: q06 (p.17 not retrieved), q15 (p.46). q09 retrieved at rank 3 but the model refused. A re-run on the final code reproduces retrieval and refusals exactly. |
+| hybrid | 0.870 | 0.646 | 0.821 | 0.696 | `RETRIEVAL_MODE=hybrid`. Scores are RRF fusion scores, not cosine. Finds q15 (rank 2, now answered) and diagram d01 (p.5, rank 3), but several first hits drop one rank (q01, q02, q07, q13, q09 3→5), so MRR is slightly lower. |
+| rerank | 0.826 | 0.750 | 0.857 | 0.696 | `RERANK_ENABLED=true`, Cohere Rerank 3.5 over 20 dense candidates. Best MRR: q01, q05 move to rank 1, q15 None→1 (answered). Scores are rerank relevance. Answers d03 correctly from p.24 text (pre-phase: dexamethasone + cyclophosphamide), so that diagram fact also exists as prose; hit@5 still counts it as a miss (expected p.22). Cohere quota is 3 req/min: the client uses adaptive retries and a run takes ~10 min. |
+| hybrid-rerank | 0.826 | 0.750 | 0.786 | 0.565 | Hybrid candidates + rerank. Same ranks as rerank; d01's hybrid gain does not survive reranking. q19 now refused (table answer lost); lower `contains expected` comes from answer wording on table questions. |
+| with-toc | 0.783 | 0.659 | 0.786 | 0.609 | `EXCLUDED_PAGES=[]`, collection `palg_all7_with_toc` (134 points). TOC chunks (p.2–4) enter the top 5 for q06, q13, q15, d01, d03, but only push out chunks below the first hit or misses: no first-hit rank changes. No benefit; keep the exclusion. |
+| pypdf | 0.783 | 0.598 | 0.786 | 0.652 | `PARSER=pypdf`, collection `palg_all7_pypdf` (85 chunks, ~2000 chars, no headings). Same hit@5, lower MRR (q07, q10, q12, q14, q18 drop to rank 2). q09 answered, q17 now refused. Tables come out as readable rows on this PDF, so the gap to Docling is smaller than expected. |
+| gpt-oss | 0.783 | 0.659 | 0.821 | 0.478 | `LLM_MODEL_ID=openai.gpt-oss-120b-1:0`, same retrieval as baseline. Reasoning blocks are dropped from `answer`. Answers q09, but with the <55 dose (40 mg/m2, p.8) for the >55 group: an extrapolation the prompt forbids. Lower `contains expected` (answers paraphrase, e.g. q17, q19). |
+
+### Summary and proposed default
+
+- **Retrieval:** rerank gives the best ranking (MRR 0.659 → 0.750) and the most correct answers
+  (refusal correct 0.857). Hybrid gives the best recall (hit@5 0.870) at no extra cost, and is the only
+  setting that reaches a diagram page. Combining them did not add up.
+- **Parsing:** Docling stays. pypdf matches hit@5 but ranks worse, and has no section headings for citations.
+- **TOC:** keep pages 1–4 excluded (no gain from including them).
+- **Model:** keep Nova 2 Lite. gpt-oss-120b extrapolated a dose between age groups (q09), which is the
+  failure the prompt rules exist to prevent.
+- **Proposed new default** ([ADR 0002](../adr/0002-retrieval-default.md), not applied; needs approval): `RERANK_ENABLED=true` with dense retrieval,
+  after raising the Cohere Rerank on-demand quota above 3 requests/minute. Until then, `RETRIEVAL_MODE=hybrid`
+  is the safe improvement. With n = 23 answerable questions both gains are 2–4 questions, so grow the golden
+  set before relying on the difference between them.
 
 ## Backlog (future steps)
 

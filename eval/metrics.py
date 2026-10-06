@@ -33,8 +33,12 @@ def refusal_correct(answer: str, question_type: str) -> bool:
     return refused if question_type == "unanswerable" else not refused
 
 
+# Hyphen and dash variants models use in ranges ("36‑42", "36–42").
+_DASHES = str.maketrans(dict.fromkeys("\u2010\u2011\u2012\u2013\u2014\u2212", "-"))
+
+
 def _squash(text: str) -> str:
-    return re.sub(r"\s+", "", text).casefold()
+    return re.sub(r"\s+", "", text).translate(_DASHES).casefold()
 
 
 def contains_expected(answer: str, expected_answer: str) -> bool:

@@ -21,6 +21,11 @@ paths:
 - When a milestone is done, tick it in the matching requirements file.
 - If a plan conflicts with the requirements or with reality (an API changed, a model is unavailable), stop and ask.
   Don't silently pick something else.
+- Record architecturally significant decisions (components, technologies, interfaces, data model, deployment,
+  anything expensive to reverse) as an ADR in `docs/adr/NNNN-<slug>.md`, indexed in `docs/adr/README.md`.
+  Commit it with the change it explains. Never rewrite an accepted ADR; supersede it.
+- Other decisions are not ADRs: workarounds and config defaults get a comment where they are defined
+  (and a README "Development notes" entry if people need to know); eval findings go in the requirements "Results".
 
 ## Tooling
 - Python 3.12, `uv` only (`uv add`, `uv sync`, `uv run`). Never use pip directly.

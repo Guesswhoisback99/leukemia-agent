@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     collection_name: str = "palg_all7"
 
     pdf_path: str = "data/protokol_palg_all7.pdf"
+    # "pypdf" is only an experiment baseline (no section headings, no table structure).
+    parser: Literal["docling", "pypdf"] = "docling"
     chunks_path: str = "data/chunks.jsonl"
     excluded_pages: list[int] = [1, 2, 3, 4]
     # Tokenizer used only to size chunks (Titan's tokenizer is not public); multilingual for Polish.
