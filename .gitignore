@@ -1,0 +1,18 @@
+# secrets / local config
+.env
+
+# source document (copyrighted) and generated data
+data/
+
+# eval outputs
+eval/results/
+eval/golden.draft.jsonl
+
+# python / tooling
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# os
+.DS_Store
