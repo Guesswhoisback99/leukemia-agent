@@ -1,0 +1,13 @@
+.env
+data/
+eval/results/
+eval/golden.draft.jsonl
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.git/
+docs/
+eval/
+tests/

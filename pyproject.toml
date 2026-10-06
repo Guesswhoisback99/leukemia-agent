@@ -1,0 +1,49 @@
+[project]
+name = "leukemia-agent"
+version = "0.1.0"
+description = "RAG agent for the PALG ALL7 treatment protocol"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "boto3>=1.43.108",
+    "fastembed>=0.8.1",
+    "langchain-aws>=1.8.0",
+    "langchain-core>=1.6.6",
+    "langchain-qdrant>=1.1.0",
+    "pydantic-settings>=2.15.0",
+    "qdrant-client>=1.19.1",
+]
+
+[dependency-groups]
+api = [
+    "fastapi>=0.142.2",
+    "uvicorn[standard]>=0.54.0",
+]
+ingest = [
+    "docling>=2.134.0",
+    "langchain-docling>=3.0.0",
+]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.uv]
+package = false
+default-groups = ["api", "ingest", "dev"]
+# Intel Mac host + Linux container: resolve only versions with wheels for both.
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
+# torch stops at 2.2.2 on Intel macOS; that build needs numpy 1.x and transformers 4.x.
+constraint-dependencies = [
+    "numpy<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "transformers<5; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
