@@ -5,7 +5,6 @@ description = "RAG agent for the PALG ALL7 treatment protocol"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "boto3>=1.43.108",
     "fastembed>=0.8.1",
     "langchain-aws>=1.8.0",
     "langchain-core>=1.6.6",
@@ -21,10 +20,7 @@ api = [
 ]
 ingest = [
     "docling>=2.134.0",
-    "langchain-community>=0.4.2",
     "langchain-docling>=3.0.0",
-    "langchain-text-splitters>=1.1.3",
-    "pypdf>=6.19.0",
 ]
 dev = [
     "httpx>=0.28.1",
