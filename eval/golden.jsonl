@@ -1,0 +1,28 @@
+{"id": "q01", "question": "Jaka jest dawka deksametazonu w indukcji I (schemat PALG ALL7 Ph(-) <55 r.ż.)?", "expected_answer": "40 mg", "expected_pages": [8], "type": "table"}
+{"id": "q02", "question": "W których dniach leczenia podaje się blinatumomab w pierwszym tygodniu indukcji II (opcja)?", "expected_answer": "36-42", "expected_pages": [11], "type": "table"}
+{"id": "q03", "question": "Jaką dawkę inotuzumabu ozogamycyny podaje się w 1. dniu pierwszego cyklu leczenia?", "expected_answer": "0,8 mg/m2", "expected_pages": [12], "type": "prose"}
+{"id": "q04", "question": "W których dniach wykonuje się biopsję aspiracyjną szpiku po konsolidacji II?", "expected_answer": "98-99", "expected_pages": [15], "type": "prose"}
+{"id": "q05", "question": "W których dniach podaje się metotreksat w konsolidacji III (schemat PALG ALL7 Ph(-) <55 r.ż.)?", "expected_answer": "106", "expected_pages": [16], "type": "table"}
+{"id": "q06", "question": "Jaka jest dawka prednizonu w leczeniu podtrzymującym w schemacie PALG ALL7 Ph(-) <55 r.ż.?", "expected_answer": "60 mg/m2", "expected_pages": [17], "type": "table"}
+{"id": "q07", "question": "W którym dniu indukcji I po raz pierwszy pobiera się krew na oznaczenie aktywności asparaginazy?", "expected_answer": "dniu 20", "expected_pages": [20], "type": "prose"}
+{"id": "q09", "question": "Jaka jest dawka daunorubicyny w indukcji u chorych powyżej 55 r.ż. (schemat PALG ALL7 Ph(-) >55 r.ż.)?", "expected_answer": "30 mg/m2", "expected_pages": [25], "type": "table"}
+{"id": "q10", "question": "W których dniach podaje się nelarabinę w indukcji III u chorych z T-ALL bez CR po indukcji I i II?", "expected_answer": "71, 73, 75", "expected_pages": [28], "type": "table"}
+{"id": "q11", "question": "W których dobach podaje się nelarabinę w reindukcji u chorych z nawrotem T-ALL?", "expected_answer": "1, 3, 5", "expected_pages": [35], "type": "table"}
+{"id": "q12", "question": "Jak często należy monitorować MRD po alloHSCT u chorych, u których nie wykrywa się transkryptu BCR-ABL1?", "expected_answer": "co 4-6 tygodni", "expected_pages": [38, 39], "type": "prose"}
+{"id": "q13", "question": "Jaka jest dawka rytuksymabu w konsolidacji I (schemat PALG ALL7 Ph(+) <55 r.ż.)?", "expected_answer": "375 mg/m2", "expected_pages": [40], "type": "table"}
+{"id": "q14", "question": "Jaką dawkę ponatynibu stosuje się w przypadku oporności na dazatynib (schemat PALG ALL7 Ph(+) <55 r.ż.)?", "expected_answer": "45 mg", "expected_pages": [41], "type": "prose"}
+{"id": "q15", "question": "Na jakiej podstawie modyfikuje się dawkę TKI w przypadku objawów toksyczności w konsolidacji II, IV i VI (Ph(+))?", "expected_answer": "CHPL", "expected_pages": [46], "type": "prose"}
+{"id": "q16", "question": "Jaką dawkę allopurinolu stosuje się w profilaktyce zespołu lizy guza?", "expected_answer": "100-200 mg/m2", "expected_pages": [50], "type": "prose"}
+{"id": "q17", "question": "Co zaleca się w pierwszej kolejności w przypadku wystąpienia zmian niedokrwiennych w OUN w trakcie leczenia asparaginazą?", "expected_answer": "odstawienie asparaginazy", "expected_pages": [53, 54], "type": "prose"}
+{"id": "q18", "question": "Jak postępować w przypadku zapalenia trzustki w stopniu 1-2 CTC AE w trakcie leczenia PEG-ASP?", "expected_answer": "do czasu normalizacji", "expected_pages": [55], "type": "prose"}
+{"id": "q19", "question": "Jak zdefiniowany jest 3. stopień nudności wg CTCAE 4.03?", "expected_answer": "żywienie pozajelitowe", "expected_pages": [57], "type": "table"}
+{"id": "q21", "question": "Czym dezynfekuje się końcówkę cewnika naczyniowego, jeśli producent nie zaleca preparatów alkoholowych?", "expected_answer": "chlorheksydyny", "expected_pages": [62, 63], "type": "prose"}
+{"id": "q22", "question": "Przy jakim wzroście aktywności transaminaz należy przerwać stosowanie asparaginazy?", "expected_answer": "20,0", "expected_pages": [67], "type": "table"}
+{"id": "d01", "question": "Ile cykli leczenia podtrzymującego otrzymują chorzy po autoHSCT w schemacie PALG ALL7 B Ph(-) <55 r.ż.?", "expected_answer": "12", "expected_pages": [5], "type": "diagram"}
+{"id": "d02", "question": "Jakie leczenie stosuje się u chorych bez CR po indukcji w schemacie PALG ALL7 Ph(-) >55 r.ż.?", "expected_answer": "blinatumomab", "expected_pages": [22], "type": "diagram"}
+{"id": "d03", "question": "Jakie leki stosuje się w przedleczeniu w schemacie PALG ALL7 T >55 r.ż.?", "expected_answer": "Dexa/Cy", "expected_pages": [22], "type": "diagram"}
+{"id": "u01", "question": "Jaka jest stolica Australii?", "expected_answer": "Protokół nie zawiera informacji na ten temat.", "expected_pages": [], "type": "unanswerable"}
+{"id": "u02", "question": "Jaki jest przepis na sernik?", "expected_answer": "Protokół nie zawiera informacji na ten temat.", "expected_pages": [], "type": "unanswerable"}
+{"id": "u03", "question": "Jaka jest dawka kladrybiny w leczeniu podtrzymującym?", "expected_answer": "Protokół nie zawiera informacji na ten temat.", "expected_pages": [], "type": "unanswerable"}
+{"id": "u04", "question": "Jaką dawkę wenetoklaksu stosuje się w indukcji I?", "expected_answer": "Protokół nie zawiera informacji na ten temat.", "expected_pages": [], "type": "unanswerable"}
+{"id": "u05", "question": "Jaka jest dawka komórek CAR-T (tisagenlecleucel) w leczeniu nawrotu B-ALL?", "expected_answer": "Protokół nie zawiera informacji na ten temat.", "expected_pages": [], "type": "unanswerable"}

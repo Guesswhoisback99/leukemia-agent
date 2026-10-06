@@ -13,7 +13,7 @@ Implementation plans: [`docs/plans/01-rag-mvp/`](../plans/01-rag-mvp/)
 - [x] 01 – Skeleton ([plan](../plans/01-rag-mvp/01-skeleton.md))
 - [x] 02 – Ingest ([plan](../plans/01-rag-mvp/02-ingest.md))
 - [x] 03 – Chain + API ([plan](../plans/01-rag-mvp/03-chain-api.md))
-- [ ] 04 – Eval: golden set + baseline ([plan](../plans/01-rag-mvp/04-eval.md))
+- [x] 04 – Eval: golden set + baseline ([plan](../plans/01-rag-mvp/04-eval.md))
 - [ ] 05 – Retrieval experiments ([plan](../plans/01-rag-mvp/05-experiments.md))
 
 ## Source document
@@ -121,6 +121,16 @@ Each decision: what we chose, why, and what we rejected.
 
 ### Tooling
 - Python 3.12 (pinned in `.python-version`), `uv` with dependency groups `api`, `ingest`, `dev`.
+
+## Results
+
+Golden set: `eval/golden.jsonl`, 28 questions (10 table, 10 prose, 3 diagram, 5 unanswerable).
+Page 68 renders blank apart from its heading, so both remaining diagram questions use the page-22 flowchart.
+Run with `uv run python -m eval.run --label <label>`, k = 5. hit@5 and MRR cover answerable questions only.
+
+| label | hit@5 | MRR | refusal correct | contains expected | notes |
+|---|---|---|---|---|---|
+| baseline | 0.783 | 0.659 | 0.786 | 0.609 | Dense, top-5, Docling chunks, Nova 2 Lite. table 0.90 / prose 0.90 hit@5; diagram 0/3 (known gap); unanswerable 5/5 refused. Misses: q06 (maintenance prednisone, p.17 not retrieved), q15 (p.46). q09 retrieved at rank 3 but the model refused. |
 
 ## Backlog (future steps)
 
