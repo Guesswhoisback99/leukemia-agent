@@ -3,7 +3,7 @@
 Agent for the PALG ALL7 treatment protocol. Ask questions in Polish, get answers with page and section citations.
 
 Built with LangChain, AWS Bedrock (Titan v2 embeddings, Amazon Nova 2 Lite), Qdrant (hybrid dense + BM25
-search) and FastAPI.
+search) and FastAPI. How a question becomes an answer: [docs/ask-flow.md](docs/ask-flow.md).
 
 ## You need
 
