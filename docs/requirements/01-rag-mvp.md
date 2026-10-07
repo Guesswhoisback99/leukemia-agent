@@ -59,8 +59,15 @@ and generates a grounded answer with an AWS Bedrock model. Every answer cites it
   push protection; no pre-commit hooks.
 
 ### Observability and quality
-- stdout logging only. Per request: question, retrieved pages + scores, model ID, token usage, latency.
-  The full prompt only at `LOG_LEVEL=DEBUG`. Langfuse and CloudWatch GenAI observability are backlog.
+- stdout logging only (`docker compose logs api`), meant for debugging by the developer.
+- `INFO`, one `ask` line per request, no chunk or answer text: question, hits as
+  `(chunk_index, page, RRF score)`, `refused`, model ID, input/output tokens, latency.
+  Token fields are `None` when retrieval is empty (no LLM call).
+- `DEBUG` adds the full prompt (which contains the retrieved chunk text) and the full answer, each as one
+  `repr` line so `grep` keeps working.
+- Not tracked: reasoning tokens (Bedrock counts them inside `outputTokens` and `ChatBedrockConverse` does not
+  split them out), Titan query-embedding tokens (LangChain drops them; ~tens of tokens per query), cost,
+  request IDs. Langfuse and CloudWatch GenAI observability are backlog.
 - `ruff` (by hand) and `pytest`. No CI.
 
 ### Evaluation

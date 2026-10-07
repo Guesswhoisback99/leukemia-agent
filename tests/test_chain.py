@@ -72,3 +72,15 @@ def test_reasoning_blocks_are_not_part_of_answer():
     chain = build_chain(Settings(_env_file=None), store=StubStore([(DOC_A, 0.8)]), llm=llm)
     result = chain.invoke({"question": "Dawka MTX?", "top_k": 5})
     assert result["answer"] == "1500 mg/m2 [s. 16, 10. KONSOLIDACJA III]"
+
+
+def test_answer_logged_at_debug(caplog):
+    store = StubStore([(DOC_A, 0.81)])
+    llm = FakeListChatModel(responses=["1500 mg/m2 [s. 16, 10. KONSOLIDACJA III]"])
+    chain = build_chain(Settings(_env_file=None), store=store, llm=llm)
+    with caplog.at_level("DEBUG", logger="app.chain"):
+        chain.invoke({"question": "Dawka MTX?", "top_k": 5})
+    messages = [r.getMessage() for r in caplog.records]
+    assert all("\n" not in m for m in messages)
+    assert any(m.startswith("Prompt: '") and "METOTREKSAT" in m for m in messages)
+    assert "Answer: '1500 mg/m2 [s. 16, 10. KONSOLIDACJA III]'" in messages

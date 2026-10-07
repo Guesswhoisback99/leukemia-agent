@@ -10,7 +10,7 @@ from app.chain import REFUSAL
 
 DOC = Document(
     page_content="METOTREKSAT " * 50,
-    metadata={"page": 16, "section": "10. KONSOLIDACJA III"},
+    metadata={"page": 16, "section": "10. KONSOLIDACJA III", "chunk_index": 42},
 )
 
 
@@ -74,6 +74,33 @@ def test_ask_custom_top_k_and_refusal(client):
     assert response.status_code == 200
     assert response.json()["answer"] == REFUSAL
     assert response.json()["sources"] == []
+
+
+def ask_log_line(caplog) -> str:
+    return next(m for r in caplog.records if (m := r.getMessage()).startswith("ask "))
+
+
+def test_ask_logs_hits_and_tokens(client, caplog):
+    # Shape returned by ChatBedrockConverse: reasoning is counted inside output_tokens.
+    usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    override_chain(
+        lambda inputs: {"answer": "1500 mg/m2", "retrieved": [(DOC, 0.8)], "usage": usage}
+    )
+    with caplog.at_level("INFO", logger="app.api"):
+        client.post("/ask", json={"question": "Dawka MTX?"})
+    line = ask_log_line(caplog)
+    assert "hits=[(42, 16, 0.8)]" in line
+    assert "refused=False" in line
+    assert "input_tokens=10 output_tokens=5 " in line
+
+
+def test_ask_logs_refusal_without_tokens(client, caplog):
+    override_chain(lambda inputs: {"answer": REFUSAL, "retrieved": [], "usage": None})
+    with caplog.at_level("INFO", logger="app.api"):
+        client.post("/ask", json={"question": "Stolica Australii?"})
+    line = ask_log_line(caplog)
+    assert "hits=[] refused=True" in line
+    assert "input_tokens=None" in line
 
 
 @pytest.mark.parametrize("payload", [{"question": ""}, {"question": "x", "top_k": 50}, {}])

@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
-from app.chain import ChainResult, build_chain
+from app.chain import ChainResult, build_chain, is_refusal
 from app.config import get_settings
 from app.logging_setup import setup_logging
 from app.store import get_qdrant_client
@@ -87,9 +87,14 @@ def ask(
     ]
     usage = result["usage"] or {}
     logger.info(
-        "ask question=%r hits=%s model=%s input_tokens=%s output_tokens=%s latency_ms=%.0f",
+        "ask question=%r hits=%s refused=%s model=%s input_tokens=%s output_tokens=%s "
+        "latency_ms=%.0f",
         body.question,
-        [(s.page, round(s.score, 3)) for s in sources],
+        [
+            (doc.metadata["chunk_index"], doc.metadata["page"], round(score, 3))
+            for doc, score in result["retrieved"]
+        ],
+        is_refusal(result["answer"]),
         settings.llm_model_id,
         usage.get("input_tokens"),
         usage.get("output_tokens"),

@@ -2,7 +2,7 @@
 
 import re
 
-from app.chain import REFUSAL
+from app.chain import is_refusal
 
 
 def first_hit_rank(
@@ -29,7 +29,7 @@ def mrr(ranks: list[int | None]) -> float:
 
 
 def refusal_correct(answer: str, question_type: str) -> bool:
-    refused = answer.strip() == REFUSAL
+    refused = is_refusal(answer)
     return refused if question_type == "unanswerable" else not refused
 
 

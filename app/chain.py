@@ -43,6 +43,10 @@ _SUPERSCRIPTS = str.maketrans("²³", "23")
 PROMPT = ChatPromptTemplate.from_messages([("system", SYSTEM_PROMPT), ("human", HUMAN_PROMPT)])
 
 
+def is_refusal(answer: str) -> bool:
+    return answer.strip() == REFUSAL
+
+
 class ChainResult(TypedDict):
     answer: str
     retrieved: list[tuple[Document, float]]
@@ -63,14 +67,16 @@ def get_llm(settings: Settings) -> ChatBedrockConverse:
 
 
 def _log_prompt(prompt: PromptValue) -> PromptValue:
-    logger.debug("Prompt:\n%s", prompt.to_string())
+    logger.debug("Prompt: %r", prompt.to_string())
     return prompt
 
 
 def _to_result(inputs: dict[str, Any]) -> ChainResult:
     message: AIMessage = inputs["message"]
+    answer = message.text.strip().translate(_SUPERSCRIPTS)
+    logger.debug("Answer: %r", answer)
     return {
-        "answer": message.text.strip().translate(_SUPERSCRIPTS),
+        "answer": answer,
         "retrieved": inputs["retrieved"],
         "usage": message.usage_metadata,
     }

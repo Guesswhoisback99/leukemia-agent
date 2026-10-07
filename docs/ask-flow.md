@@ -14,7 +14,7 @@ flowchart TD
         direction LR
         D["Dense search<br/>Titan embedding<br/>matches meaning"]
         S["Sparse search<br/>BM25<br/>matches exact words"]
-        F["RRF fusion<br/>merge both rankings<br/>keep top 5"]
+        F["RRF fusion<br/>merge both rankings<br/>keep top_k (default 5)"]
         D --> F
         S --> F
     end
@@ -23,7 +23,7 @@ flowchart TD
     Q -- No --> REF["Fixed refusal<br/>Protokół nie zawiera informacji na ten temat."]
     Q -- Yes --> P["2 · Build prompt<br/>each chunk labelled [s. page, section]<br/>rules: use only context, cite, never invent doses"]
     P --> LLM["3 · Nova 2 Lite on Bedrock<br/>temperature 0"]
-    LLM --> CL["4 · Clean up<br/>trim, m² to m2"]
+    LLM --> CL["4 · Clean up<br/>trim, m² m³ to m2 m3"]
     CL --> OUT
     REF --> OUT
     OUT(["Response<br/>answer + sources + model"])
@@ -44,7 +44,7 @@ sequenceDiagram
     Titan-->>API: dense vector
     Note over API: BM25 sparse vector<br/>computed locally (FastEmbed)
     API->>Qdrant: hybrid query (dense + sparse)
-    Qdrant-->>API: top 5 chunks, RRF-fused
+    Qdrant-->>API: top_k chunks, RRF-fused
     alt no chunks
         Note over API: fixed refusal, LLM not called
     else chunks found
